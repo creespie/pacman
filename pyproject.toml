@@ -1,0 +1,32 @@
+[project]
+name = "pacman"
+version = "0.1.0"
+description = "Pac-Man clone"
+requires-python = ">=3.10"
+dependencies = [
+    "mazegenerator==2.1.0",
+]
+
+[project.scripts]
+pacman = "pacman.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pacman"]
+
+[tool.uv.sources]
+mazegenerator = { path = "libs/mazegenerator-2.1.0-py3-none-any.whl" }
+
+[dependency-groups]
+dev = [
+    "flake8>=7.3.0",
+    "mypy>=2.3.1",
+]
+
+[tool.mypy]
+strict = true
+files = ["src"]
+mypy_path = "stubs"
