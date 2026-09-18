@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from pacman.protocol.enums import Direction, FoodType
+from pacman.protocol.enums import Direction, FoodType, GhostState
 
 
 @dataclass(frozen=True)
@@ -68,3 +68,39 @@ class PacmanCaught(Event):
     """A ghost has touched Pac-Man."""
 
     ghost_index: int
+
+
+@dataclass(frozen=True)
+class GhostStateChanged(Event):
+    """A ghost switched between chase, frightened and eaten."""
+
+    index: int
+    state: GhostState
+
+
+@dataclass(frozen=True)
+class LifeLost(Event):
+    """Pac-Man lost a life and respawned."""
+
+    lives: int
+
+
+@dataclass(frozen=True)
+class LevelCompleted(Event):
+    """Every pacgum and super-pacgum of the level has been eaten."""
+
+    level: int
+
+
+@dataclass(frozen=True)
+class GameOver(Event):
+    """Pac-Man has no lives left."""
+
+    score: int
+
+
+@dataclass(frozen=True)
+class GameWon(Event):
+    """Every level has been completed."""
+
+    score: int

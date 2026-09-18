@@ -5,12 +5,17 @@ serialized (e.g. to JSON over a WebSocket) without changes.
 """
 
 from pacman.protocol.commands import Command, Quit, SetDirection
-from pacman.protocol.enums import Direction, FoodType
+from pacman.protocol.enums import Direction, FoodType, GhostState
 from pacman.protocol.events import (
     Event,
     FoodCollected,
     FoodSpawned,
+    GameOver,
+    GameWon,
     GhostMoved,
+    GhostStateChanged,
+    LevelCompleted,
+    LifeLost,
     MazeGenerated,
     PacmanCaught,
     PacmanMoved,
@@ -24,7 +29,13 @@ __all__ = [
     "FoodCollected",
     "FoodSpawned",
     "FoodType",
+    "GameOver",
+    "GameWon",
     "GhostMoved",
+    "GhostState",
+    "GhostStateChanged",
+    "LevelCompleted",
+    "LifeLost",
     "MazeGenerated",
     "PacmanCaught",
     "PacmanMoved",

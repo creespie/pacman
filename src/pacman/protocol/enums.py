@@ -18,3 +18,11 @@ class FoodType(Enum):
 
     PACGUM = 1
     SUPER_PACGUM = 2
+
+
+class GhostState(Enum):
+    """Behavioural state of a ghost."""
+
+    CHASE = "chase"
+    FRIGHTENED = "frightened"
+    EATEN = "eaten"
