@@ -45,8 +45,12 @@ class Entity(ABC):
 
     @property
     def speed(self) -> float:
-        """Return the entity speed."""
+        """Return the entity speed, in cells per second."""
         return self._speed
+
+    @speed.setter
+    def speed(self, speed: float) -> None:
+        self._speed = max(0.0, speed)
 
     @property
     def direction(self) -> Direction:

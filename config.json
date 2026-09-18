@@ -1,13 +1,31 @@
+# Pac-Man configuration.
+# Lines starting with '#' are comments, and so is anything after a '#'
+# or a '//' outside of a JSON string.
 {
+    # Where the top ten scores are stored, relative to the working dir.
     "highscore_filename": "highscores.json",
+
+    # Number of levels to complete to win the game (at least 10).
     "levels": 10,
+
+    # Size of the maze, in cells. The A-Maze-ing generator receives
+    # half of it, since every generated cell becomes a 2x2 block.
     "width": 21,
     "height": 21,
+
     "lives": 3,
-    "pacgum": 42,
+
+    # Maximum number of pacgums per level. Larger than the number of
+    # corridors (the case here) means "one pacgum in every corridor".
+    "pacgum": 999,
+
     "points_per_pacgum": 10,
     "points_per_super_pacgum": 50,
     "points_per_ghost": 200,
+
+    # Seed of the first level; the next ones are random.
     "seed": 42,
-    "level_max_time": 90
+
+    # Seconds allowed per level. Running out costs one life.
+    "level_max_time": 90  // the original arcade was kinder than this
 }

@@ -1,80 +1,100 @@
-"""Loading and validation of the game configuration file."""
+"""Loading and validation of the game configuration file.
+
+The subject asks for a forgiving loader: a missing or invalid *value*
+must never stop the game. Such a value is clamped to a safe default, a
+clear message is logged, and the game keeps going. Unknown keys are
+ignored. Only a file that cannot be read or parsed at all is fatal, and
+even then the caller gets a ``ConfigError`` with a readable message
+instead of a traceback.
+"""
 
 import json
-from dataclasses import dataclass
+import sys
+from collections.abc import Callable
+from dataclasses import dataclass, fields
 from pathlib import Path
-from typing import Any, get_type_hints
+from typing import Any
 
 
 class ConfigError(Exception):
-    """Raised when the configuration file cannot be read or is invalid."""
+    """Raised when the configuration file cannot be read or parsed."""
 
 
 @dataclass(frozen=True)
 class Config:
-    """Game settings loaded from ``config.json``."""
+    """Game settings loaded from the JSON configuration file."""
 
-    highscore_filename: str
-    levels: int
-    width: int
-    height: int
-    lives: int
-    pacgum: int
-    points_per_pacgum: int
-    points_per_super_pacgum: int
-    points_per_ghost: int
-    seed: int
-    level_max_time: int
+    highscore_filename: str = "highscores.json"
+    levels: int = 10
+    width: int = 21
+    height: int = 21
+    lives: int = 3
+    pacgum: int = 999
+    points_per_pacgum: int = 10
+    points_per_super_pacgum: int = 50
+    points_per_ghost: int = 200
+    seed: int = 42
+    level_max_time: int = 90
 
 
-# Minimum allowed value for each integer setting.
-_MINIMUMS: dict[str, int] = {
-    "levels": 1,
-    "width": 1,
-    "height": 1,
-    "lives": 1,
-    "pacgum": 1,
-    "points_per_pacgum": 0,
-    "points_per_super_pacgum": 0,
-    "points_per_ghost": 0,
-    "seed": 0,
-    "level_max_time": 1,
+# Allowed range for each integer setting, as (minimum, maximum).
+_RANGES: dict[str, tuple[int, int]] = {
+    "levels": (1, 999),
+    "width": (7, 101),
+    "height": (7, 101),
+    "lives": (1, 99),
+    "pacgum": (1, 100_000),
+    "points_per_pacgum": (0, 1_000_000),
+    "points_per_super_pacgum": (0, 1_000_000),
+    "points_per_ghost": (0, 1_000_000),
+    "seed": (0, 2**31 - 1),
+    "level_max_time": (5, 3600),
 }
 
-# JSON names of the Python types produced by ``json.loads``.
-_JSON_TYPE_NAMES: dict[type, str] = {
-    str: "a string",
-    int: "an integer",
-    float: "a number",
-    bool: "a boolean",
-    list: "an array",
-    dict: "an object",
-    type(None): "null",
-}
+Warn = Callable[[str], None]
 
 
-def load_config(path: str | Path = "config.json") -> Config:
-    """Read, parse and validate the configuration file at ``path``.
+def _warn_to_stderr(message: str) -> None:
+    """Default warning sink: one line on the standard error stream."""
+    print(f"config: {message}", file=sys.stderr)
 
-    Everything after a ``#`` that is outside of a JSON string is treated
-    as a comment and ignored.
+
+def load_config(
+    path: str | Path = "config.json",
+    warn: Warn = _warn_to_stderr,
+) -> Config:
+    """Read, parse and sanitize the configuration file at ``path``.
+
+    Lines or line ends starting with ``#`` are comments, as are ``//``
+    line comments; both are stripped before the JSON is parsed.
+
+    Args:
+        path: Path of the configuration file.
+        warn: Called once per clamped or ignored setting.
+
+    Returns:
+        A ``Config`` where every value is guaranteed to be usable.
 
     Raises:
-        ConfigError: if the file cannot be read, is not valid JSON, or
-            contains missing, unknown or invalid settings.
+        ConfigError: If the file cannot be read or is not valid JSON.
     """
     path = Path(path)
+    data = _parse_json(path, _strip_comments(_read_text(path)))
 
-    text = _read_text(path)
-    data = _parse_json(path, _strip_comments(text))
+    if not isinstance(data, dict):
+        raise ConfigError(
+            f"{path}: top-level value must be a JSON object, "
+            f"got {_json_type_name(data)}"
+        )
 
-    return _build_config(path, data)
+    return _build_config(data, warn)
 
 
 def _read_text(path: Path) -> str:
     """Return the file content, converting I/O errors into ConfigError."""
     try:
-        return path.read_text(encoding="utf-8")
+        with path.open(encoding="utf-8") as stream:
+            return stream.read()
     except FileNotFoundError:
         raise ConfigError(f"{path}: file not found") from None
     except IsADirectoryError:
@@ -88,7 +108,11 @@ def _read_text(path: Path) -> str:
 
 
 def _strip_comments(text: str) -> str:
-    """Remove ``#`` comments outside of JSON strings, keeping line numbers."""
+    """Remove ``#`` and ``//`` comments found outside of JSON strings.
+
+    Line numbers are preserved so that a parse error still points at the
+    right line of the original file.
+    """
     lines = []
 
     for line in text.splitlines():
@@ -102,7 +126,12 @@ def _strip_comments(text: str) -> str:
                 escaped = True
             elif char == '"':
                 in_string = not in_string
-            elif char == "#" and not in_string:
+            elif in_string:
+                continue
+            elif char == "#":
+                line = line[:index]
+                break
+            elif char == "/" and line[index:index + 2] == "//":
                 line = line[:index]
                 break
 
@@ -115,81 +144,88 @@ def _parse_json(path: Path, text: str) -> Any:
     """Parse JSON text, converting syntax errors into ConfigError."""
     if not text.strip():
         raise ConfigError(
-            f"{path}: no content (file is empty or contains only comments)"
+            f"{path}: no content (file is empty or only comments)"
         )
 
-    def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
-        result: dict[str, Any] = {}
-
-        for key, value in pairs:
-            if key in result:
-                raise ConfigError(f"{path}: duplicate key '{key}'")
-            result[key] = value
-
-        return result
-
     try:
-        return json.loads(text, object_pairs_hook=reject_duplicate_keys)
+        return json.loads(text)
     except json.JSONDecodeError as error:
         raise ConfigError(
             f"{path}:{error.lineno}:{error.colno}: {error.msg}"
         ) from None
 
 
-def _build_config(path: Path, data: Any) -> Config:
-    """Validate the parsed JSON and build a Config, reporting every error."""
-    if not isinstance(data, dict):
-        raise ConfigError(
-            f"{path}: top-level value must be an object, "
-            f"got {_json_type_name(data)}"
-        )
+def _build_config(data: dict[str, Any], warn: Warn) -> Config:
+    """Turn raw JSON data into a Config, clamping whatever is wrong."""
+    defaults = Config()
+    values: dict[str, Any] = {}
 
-    expected_types = get_type_hints(Config)
-    errors: list[str] = []
+    for spec in fields(Config):
+        name = spec.name
+        default = getattr(defaults, name)
 
-    for name, expected_type in expected_types.items():
         if name not in data:
-            errors.append(f"missing key '{name}'")
+            warn(f"missing key '{name}', using default {default!r}")
+            values[name] = default
             continue
 
-        error = _validate_value(name, data[name], expected_type)
+        values[name] = _sanitize(name, data[name], default, warn)
 
-        if error is not None:
-            errors.append(error)
+    for key in data:
+        if key not in values:
+            warn(f"unknown key '{key}' ignored")
 
-    errors.extend(
-        f"unknown key '{key}'" for key in data if key not in expected_types
-    )
-
-    if errors:
-        details = "\n".join(f"  - {error}" for error in errors)
-        raise ConfigError(f"{path}: invalid configuration:\n{details}")
-
-    return Config(**data)
+    return Config(**values)
 
 
-def _validate_value(name: str, value: Any, expected_type: type) -> str | None:
-    """Return an error message if ``value`` is invalid, else ``None``."""
+def _sanitize(name: str, value: Any, default: Any, warn: Warn) -> Any:
+    """Return ``value`` if it is usable, else a safe fallback."""
+    if isinstance(default, str):
+        return _sanitize_str(name, value, default, warn)
+
     # bool is a subclass of int, so it has to be rejected explicitly.
-    if isinstance(value, bool) or not isinstance(value, expected_type):
-        return (
-            f"'{name}' must be {_JSON_TYPE_NAMES[expected_type]}, "
-            f"got {_json_type_name(value)}"
+    if isinstance(value, bool) or not isinstance(value, int):
+        warn(
+            f"'{name}' must be an integer, got {_json_type_name(value)}, "
+            f"using default {default!r}"
         )
+        return default
 
-    if isinstance(value, str):
-        if not value.strip():
-            return f"'{name}' must not be empty"
+    low, high = _RANGES[name]
 
-    elif isinstance(value, int):
-        minimum = _MINIMUMS.get(name)
+    if value < low:
+        warn(f"'{name}' must be at least {low}, got {value}, clamped")
+        return low
 
-        if minimum is not None and value < minimum:
-            return f"'{name}' must be at least {minimum}, got {value}"
+    if value > high:
+        warn(f"'{name}' must be at most {high}, got {value}, clamped")
+        return high
 
-    return None
+    return value
+
+
+def _sanitize_str(name: str, value: Any, default: str, warn: Warn) -> str:
+    """Validate a string setting, falling back to its default."""
+    if not isinstance(value, str) or not value.strip():
+        warn(
+            f"'{name}' must be a non-empty string, "
+            f"got {_json_type_name(value)}, using default {default!r}"
+        )
+        return default
+
+    return value
 
 
 def _json_type_name(value: Any) -> str:
     """Return the JSON name of a value's type."""
-    return _JSON_TYPE_NAMES.get(type(value), type(value).__name__)
+    names: dict[type, str] = {
+        str: "a string",
+        bool: "a boolean",
+        int: "an integer",
+        float: "a number",
+        list: "an array",
+        dict: "an object",
+        type(None): "null",
+    }
+
+    return names.get(type(value), type(value).__name__)

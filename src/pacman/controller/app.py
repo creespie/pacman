@@ -1,70 +1,117 @@
-"""Wire the model, the views and the input handlers, and run the game loop."""
+"""Wire the session, the views and the inputs, and drive the frames.
+
+The application never blocks by itself: ``tick`` advances the game by
+the time really elapsed since the previous frame. It can therefore be
+called by the MLX loop hook (the real game), or by the plain loop of
+``run`` (tests and headless runs) without changing anything else.
+"""
 
 import time
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 
 from pacman.config import Config
 from pacman.controller.input_handler import InputHandler
-from pacman.model.game import Game
-from pacman.protocol import Command, Quit
+from pacman.controller.session import Session
+from pacman.model.highscore import HighscoreTable
+from pacman.utils.observer import Observer
 from pacman.view.base import View
 
 
 class App:
-    """Create the game, connect views and input handlers, run the loop."""
+    """Own the session, poll the inputs, render the views."""
 
-    FPS = 60
-    DELTA_TIME = 1.0 / FPS
+    TARGET_FPS = 60
+    FRAME_TIME = 1.0 / TARGET_FPS
+
+    # A frame longer than this (a window being dragged, a slow machine)
+    # is capped: better a small slow-down than entities jumping through
+    # walls.
+    MAX_DELTA = 0.1
 
     def __init__(
         self,
         config: Config,
+        highscores: HighscoreTable,
         views: Iterable[View] = (),
         input_handlers: Iterable[InputHandler] = (),
+        on_stop: Callable[[], None] | None = None,
     ) -> None:
-        self._game = Game(config)
+        self._session = Session(config, highscores)
         self._views = list(views)
         self._input_handlers = list(input_handlers)
+        self._on_stop = on_stop
         self._running = False
+        self._last_time = time.perf_counter()
 
         for view in self._views:
-            self._game.attach(view)
+            self._session.attach(view)
+
+        # Input handlers that follow the screen flow (the keyboard needs
+        # to know whether an arrow key means "go left" or "menu up").
+        for handler in self._input_handlers:
+            if isinstance(handler, Observer):
+                self._session.attach(handler)
+
+    @property
+    def session(self) -> Session:
+        """Return the session, mostly for tests."""
+        return self._session
+
+    @property
+    def is_running(self) -> bool:
+        """Return True while the application should keep ticking."""
+        return self._running
+
+    def start(self) -> None:
+        """Publish the initial state and arm the frame clock."""
+        self._running = True
+        self._last_time = time.perf_counter()
+        self._session.start()
+
+    def tick(self) -> None:
+        """Run exactly one frame: input, model, then rendering."""
+        if not self._running:
+            return
+
+        now = time.perf_counter()
+        delta_time = min(now - self._last_time, self.MAX_DELTA)
+        self._last_time = now
+
+        self._process_input()
+        self._session.tick(delta_time)
+
+        for view in self._views:
+            view.render()
+
+        if not self._session.is_running:
+            self.stop()
 
     def run(self) -> None:
-        """Start the main game loop."""
-        self._running = True
-        self._game.start()
+        """Drive the frames from a plain loop (no graphics library)."""
+        if not self._running:
+            self.start()
 
         while self._running:
-            start_time = time.perf_counter()
+            frame_start = time.perf_counter()
+            self.tick()
+            elapsed = time.perf_counter() - frame_start
+            remaining = self.FRAME_TIME - elapsed
 
-            self._process_input()
-            self._game.update(self.DELTA_TIME)
-
-            for view in self._views:
-                view.render()
-
-            # Keep the game close to the target FPS.
-            elapsed_time = time.perf_counter() - start_time
-            sleep_time = self.DELTA_TIME - elapsed_time
-
-            if sleep_time > 0:
-                time.sleep(sleep_time)
+            if remaining > 0:
+                time.sleep(remaining)
 
     def stop(self) -> None:
-        """Stop the game loop."""
+        """Stop ticking and let the graphics loop, if any, return."""
+        if not self._running:
+            return
+
         self._running = False
 
+        if self._on_stop is not None:
+            self._on_stop()
+
     def _process_input(self) -> None:
-        """Collect the commands from every input handler and dispatch them."""
+        """Collect the commands of every input handler and route them."""
         for handler in self._input_handlers:
             for command in handler.poll():
-                self._dispatch(command)
-
-    def _dispatch(self, command: Command) -> None:
-        """Route a command to the app or to the model."""
-        match command:
-            case Quit():
-                self.stop()
-            case _:
-                self._game.handle(command)
+                self._session.handle(command)

@@ -4,9 +4,27 @@ Everything here is plain data with primitive fields, so that it can be
 serialized (e.g. to JSON over a WebSocket) without changes.
 """
 
-from pacman.protocol.commands import Command, Quit, SetDirection
-from pacman.protocol.enums import Direction, FoodType, GhostState
+from pacman.protocol.commands import (
+    Back,
+    Backspace,
+    Command,
+    Confirm,
+    MoveSelection,
+    Quit,
+    SetDirection,
+    ToggleCheatMode,
+    TypeCharacter,
+    UseCheat,
+)
+from pacman.protocol.enums import (
+    Cheat,
+    Direction,
+    FoodType,
+    GhostState,
+    Screen,
+)
 from pacman.protocol.events import (
+    CheatsChanged,
     Event,
     FoodCollected,
     FoodSpawned,
@@ -14,16 +32,27 @@ from pacman.protocol.events import (
     GameWon,
     GhostMoved,
     GhostStateChanged,
+    HighscoresChanged,
     LevelCompleted,
-    LifeLost,
+    LevelStarted,
+    LivesChanged,
     MazeGenerated,
+    MenuChanged,
+    NameEntryChanged,
     PacmanCaught,
     PacmanMoved,
     ScoreChanged,
+    ScreenChanged,
+    TimeChanged,
 )
 
 __all__ = [
+    "Back",
+    "Backspace",
+    "Cheat",
+    "CheatsChanged",
     "Command",
+    "Confirm",
     "Direction",
     "Event",
     "FoodCollected",
@@ -34,12 +63,23 @@ __all__ = [
     "GhostMoved",
     "GhostState",
     "GhostStateChanged",
+    "HighscoresChanged",
     "LevelCompleted",
-    "LifeLost",
+    "LevelStarted",
+    "LivesChanged",
     "MazeGenerated",
+    "MenuChanged",
+    "MoveSelection",
+    "NameEntryChanged",
     "PacmanCaught",
     "PacmanMoved",
     "Quit",
     "ScoreChanged",
+    "Screen",
+    "ScreenChanged",
     "SetDirection",
+    "TimeChanged",
+    "ToggleCheatMode",
+    "TypeCharacter",
+    "UseCheat",
 ]

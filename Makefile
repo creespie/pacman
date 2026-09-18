@@ -1,19 +1,23 @@
 CONFIG ?= config.json
+PYTHON ?= uv run python
 
-.PHONY: install run debug clean lint
+.PHONY: install run debug clean lint lint-strict test package
 
 install:
 	uv sync
 
 run:
-	uv run pacman $(CONFIG)
+	$(PYTHON) pac-man.py $(CONFIG)
 
 debug:
-	uv run python -m pdb -m pacman $(CONFIG)
+	$(PYTHON) -m pdb pac-man.py $(CONFIG)
+
+test:
+	uv run pytest -q
 
 clean:
 	find . -type d -name __pycache__ -not -path './.venv/*' -exec rm -rf {} +
-	rm -rf .mypy_cache build dist src/*.egg-info
+	rm -rf .mypy_cache .pytest_cache build dist src/*.egg-info
 
 lint:
 	uv run flake8 .
@@ -22,3 +26,10 @@ lint:
 	              --ignore-missing-imports \
 	              --disallow-untyped-defs \
 	              --check-untyped-defs
+
+lint-strict:
+	uv run flake8 .
+	uv run mypy . --strict
+
+package:
+	uv run pyinstaller pac-man.spec --noconfirm

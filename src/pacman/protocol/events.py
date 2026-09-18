@@ -1,13 +1,25 @@
-"""Events emitted by the model and received by the views."""
+"""Events emitted by the model and the session, received by the views.
 
-from dataclasses import dataclass
+Coordinate convention (the single source of truth for the whole
+project): every ``x``/``y`` pair in an event is the **centre of a maze
+cell or a point inside it**, expressed in cells. The cell containing a
+point is therefore ``(int(x), int(y))`` and the centre of the cell
+``(col, row)`` is ``(col + 0.5, row + 0.5)``.
 
-from pacman.protocol.enums import Direction, FoodType, GhostState
+A view must never add or remove half a cell on its own.
+"""
+
+from dataclasses import dataclass, field
+
+from pacman.protocol.enums import Direction, FoodType, GhostState, Screen
 
 
 @dataclass(frozen=True)
 class Event:
     """Base class for every event."""
+
+
+# -- Level content ------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -37,6 +49,9 @@ class FoodCollected(Event):
     kind: FoodType
 
 
+# -- Entities -----------------------------------------------------------
+
+
 @dataclass(frozen=True)
 class PacmanMoved(Event):
     """Pac-Man has changed position."""
@@ -57,10 +72,11 @@ class GhostMoved(Event):
 
 
 @dataclass(frozen=True)
-class ScoreChanged(Event):
-    """The score has changed."""
+class GhostStateChanged(Event):
+    """A ghost switched between chase, frightened and eaten."""
 
-    score: int
+    index: int
+    state: GhostState
 
 
 @dataclass(frozen=True)
@@ -70,19 +86,50 @@ class PacmanCaught(Event):
     ghost_index: int
 
 
-@dataclass(frozen=True)
-class GhostStateChanged(Event):
-    """A ghost switched between chase, frightened and eaten."""
-
-    index: int
-    state: GhostState
+# -- HUD ----------------------------------------------------------------
 
 
 @dataclass(frozen=True)
-class LifeLost(Event):
-    """Pac-Man lost a life and respawned."""
+class ScoreChanged(Event):
+    """The score has changed."""
+
+    score: int
+
+
+@dataclass(frozen=True)
+class LivesChanged(Event):
+    """The number of remaining lives has changed."""
 
     lives: int
+
+
+@dataclass(frozen=True)
+class LevelStarted(Event):
+    """A level has just been (re)built and is about to be played."""
+
+    level: int
+    total_levels: int
+    time_limit: int
+
+
+@dataclass(frozen=True)
+class TimeChanged(Event):
+    """The remaining time of the current level, in whole seconds."""
+
+    seconds_left: int
+
+
+@dataclass(frozen=True)
+class CheatsChanged(Event):
+    """Cheat mode was toggled, or one of its flags changed."""
+
+    enabled: bool
+    invincible: bool = False
+    ghosts_frozen: bool = False
+    speed_boost: bool = False
+
+
+# -- End of level / end of game -----------------------------------------
 
 
 @dataclass(frozen=True)
@@ -103,4 +150,37 @@ class GameOver(Event):
 class GameWon(Event):
     """Every level has been completed."""
 
+    score: int
+
+
+# -- Session (screen flow) ----------------------------------------------
+
+
+@dataclass(frozen=True)
+class ScreenChanged(Event):
+    """The player moved to another screen."""
+
+    screen: Screen
+
+
+@dataclass(frozen=True)
+class MenuChanged(Event):
+    """The entries of the active menu, and the highlighted one."""
+
+    items: tuple[str, ...] = ()
+    selected: int = 0
+
+
+@dataclass(frozen=True)
+class HighscoresChanged(Event):
+    """The stored highscores, best first."""
+
+    entries: tuple[tuple[str, int], ...] = field(default=())
+
+
+@dataclass(frozen=True)
+class NameEntryChanged(Event):
+    """The name the player is typing on the game over / victory screen."""
+
+    name: str
     score: int

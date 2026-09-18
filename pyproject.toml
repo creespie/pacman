@@ -1,10 +1,11 @@
 [project]
 name = "pacman"
 version = "0.1.0"
-description = "Pac-Man clone"
+description = "Ghosts! More ghosts! - a Pac-Man clone in Python"
 requires-python = ">=3.10"
 dependencies = [
     "mazegenerator==2.1.0",
+    "mlx==2.2",
 ]
 
 [project.scripts]
@@ -18,15 +19,24 @@ build-backend = "hatchling.build"
 packages = ["src/pacman"]
 
 [tool.uv.sources]
+# The A-Maze-ing package assigned to us, and MiniLibX, are vendored:
+# neither of them is on PyPI.
 mazegenerator = { path = "libs/mazegenerator-2.1.0-py3-none-any.whl" }
+mlx = { path = "mlx-2.2/ubuntu/mlx-2.2-py3-none-any.whl" }
 
 [dependency-groups]
 dev = [
     "flake8>=7.3.0",
-    "mypy>=2.3.1",
+    "mypy>=1.11",
+    "pytest>=8.0",
+    "pyinstaller>=6.6",
 ]
 
 [tool.mypy]
-strict = true
-files = ["src"]
+files = ["src", "tests", "pac-man.py"]
 mypy_path = "stubs"
+exclude = "(\\.venv|mlx-2\\.2|build|dist)"
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "."]
+testpaths = ["tests"]

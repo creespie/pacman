@@ -4,15 +4,34 @@ Everything above this file works with pixels and colours, never with
 MLX handles. If the graphics library ever changes, only this file does.
 """
 
-from typing import Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
-from mlx import Mlx
+if TYPE_CHECKING:  # the real import happens in Canvas, see below
+    from mlx import Mlx
 
 # Byte written in the 4th slot of every pixel. MiniLibX historically uses
-# 0x00 for "opaque", some bindings use 0xFF. Run diag.py once and set it.
+# 0x00 for "opaque", some bindings use 0xFF.
 OPAQUE: int = 0xFF
 
+# mlx_string_put hands the colour to the GPU without swizzling it, while
+# the swapchain is BGRA: red and blue come out swapped for text (images
+# are fine, they are written byte by byte by to_pixel). Set this to
+# False if strings ever come out with the wrong colours on another
+# machine; it is the only place that needs changing.
+STRING_COLOR_SWAPS_RB = True
+
+# Metrics of the MLX built-in font atlas (1140 px wide, 95 glyphs): one
+# character is exactly 10 px wide. The glyphs are not drawn at ``y``
+# itself but a little below it, and a line ends up occupying roughly
+# [y + 15, y + 33] - measured on screen, since mlx_string_put offers no
+# way to ask. TEXT_HEIGHT is what a caller must reserve for one line.
+FONT_WIDTH = 10
+TEXT_HEIGHT = 34
+
 ESCAPE_KEY = 65307
+
+# X11 event sent when the window manager closes the window.
+DESTROY_NOTIFY = 17
 
 
 def to_pixel(color: int) -> bytes:
@@ -25,10 +44,22 @@ def to_pixel(color: int) -> bytes:
     ))
 
 
+def to_string_color(color: int) -> int:
+    """Turn 0xRRGGBB into the value mlx_string_put actually draws."""
+    if not STRING_COLOR_SWAPS_RB:
+        return color
+
+    return (
+        (color & 0x0000FF) << 16 | (color & 0x00FF00) | (color >> 16) & 0xFF
+    )
+
+
 class Image:
     """An MLX image, drawn into by writing bytes directly in its buffer."""
 
-    def __init__(self, mlx: Mlx, mlx_ptr: Any, width: int, height: int):
+    def __init__(
+        self, mlx: "Mlx", mlx_ptr: Any, width: int, height: int
+    ) -> None:
         self.width = width
         self.height = height
         self.ptr = mlx.mlx_new_image(mlx_ptr, width, height)
@@ -88,6 +119,11 @@ class Canvas:
     """
 
     def __init__(self, width: int, height: int, title: str) -> None:
+        # Imported here and not at module level: a machine without
+        # MiniLibX must get the clean message of make_canvas, not an
+        # ImportError traceback at start-up.
+        from mlx import Mlx
+
         self.width = width
         self.height = height
         self._mlx = Mlx()
@@ -112,7 +148,8 @@ class Canvas:
             self._mlx_ptr, self._win_ptr, self.frame.ptr, 0, 0)
         for x, y, color, value in self._texts:
             self._mlx.mlx_string_put(
-                self._mlx_ptr, self._win_ptr, x, y, color, value)
+                self._mlx_ptr, self._win_ptr, x, y,
+                to_string_color(color), value)
         self._texts.clear()
 
     def on_key(self, handler: Callable[[int], None]) -> None:
@@ -122,6 +159,15 @@ class Canvas:
             return 0
 
         self._mlx.mlx_key_hook(self._win_ptr, wrapper, None)
+
+    def on_close(self, handler: Callable[[], None]) -> None:
+        """Register a callback for the window close button."""
+        def wrapper(_param: Any) -> int:
+            handler()
+            return 0
+
+        self._mlx.mlx_hook(
+            self._win_ptr, DESTROY_NOTIFY, 0, wrapper, None)
 
     def on_tick(self, handler: Callable[[], None]) -> None:
         """Register the callback MLX calls once per frame."""
