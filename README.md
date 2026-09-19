@@ -1,4 +1,4 @@
-*This project has been created as part of the 42 curriculum by \<login1\>, \<login2\>.*
+*This project has been created as part of the 42 curriculum by lmezzaba, lurossi.*
 
 # Ghosts! More ghosts! — Pac-Man
 
@@ -354,7 +354,6 @@ often asked about. Template:
   find the half-cell offset between the model and the view.
 * **Boilerplate.** Used to draft repetitive code (event dataclasses,
   docstrings) and unit tests, all of which we read, edited and ran.
-* **Not used for.** \<list what you wrote entirely yourselves\>
 
 Everything in this repository has been read, understood and tested by
 us; we can explain and modify any part of it during the review.
