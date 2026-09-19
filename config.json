@@ -27,5 +27,8 @@
     "seed": 42,
 
     # Seconds allowed per level. Running out costs one life.
-    "level_max_time": 90  // the original arcade was kinder than this
+    # A 21x21 maze holds ~224 pacgums: a perfect route is about 62 s at
+    # Pac-Man's speed, so anything near 90 s makes a level unclearable
+    # for a human who also has to dodge four ghosts.
+    "level_max_time": 150  // the original arcade had no timer at all
 }

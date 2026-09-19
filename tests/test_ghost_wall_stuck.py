@@ -44,14 +44,32 @@ def test_ghost_recovers_after_hitting_a_wall_off_centre(
     for _ in range(30):
         game.update(1.0 / 60.0)
 
-    assert ghost.direction is not Direction.NONE or ghost.position != position_before
+    assert (
+        ghost.direction is not Direction.NONE
+        or ghost.position != position_before
+    )
 
 
-def _direction_into_a_wall(game: Game, cell_x: int, cell_y: int) -> Direction:
-    """Return a direction whose neighbour cell is a wall, from (cell_x, cell_y)."""
-    for direction in (Direction.UP, Direction.DOWN, Direction.LEFT, Direction.RIGHT):
+def _direction_into_a_wall(
+    game: Game, cell_x: int, cell_y: int
+) -> Direction:
+    """Return a direction whose neighbour cell is a wall.
+
+    The neighbour is looked for around the cell ``(cell_x, cell_y)``.
+    """
+    directions = (
+        Direction.UP,
+        Direction.DOWN,
+        Direction.LEFT,
+        Direction.RIGHT,
+    )
+
+    for direction in directions:
         step_x, step_y = direction.value
-        if not game.maze.is_walkable(cell_x + int(step_x), cell_y + int(step_y)):
+        neighbour_x = cell_x + int(step_x)
+        neighbour_y = cell_y + int(step_y)
+
+        if not game.maze.is_walkable(neighbour_x, neighbour_y):
             return direction
 
     raise AssertionError("expected at least one wall next to the ghost's cell")

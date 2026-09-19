@@ -34,7 +34,7 @@ class Config:
     points_per_super_pacgum: int = 50
     points_per_ghost: int = 200
     seed: int = 42
-    level_max_time: int = 90
+    level_max_time: int = 150
 
 
 # Allowed range for each integer setting, as (minimum, maximum).

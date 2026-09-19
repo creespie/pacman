@@ -337,7 +337,6 @@ class Game(Observable[Event]):
         if self._pacman.position != old_position:
             self._notify_pacman_moved()
 
-
     def _request_direction(self, direction: Direction) -> None:
         """Remember the direction the player wants to take."""
         self._pacman.next_direction = direction

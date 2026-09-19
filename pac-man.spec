@@ -45,6 +45,12 @@ exe = EXE(  # noqa: F821
     strip=False,
     upx=False,
     console=True,
+    # PyInstaller 6 hides everything in a "_internal" sub-folder by
+    # default, config.json included, which breaks the documented
+    # "./pac-man config.json". Keeping the contents next to the
+    # executable is what makes the shipped configuration editable by
+    # the player, which the subject asks for.
+    contents_directory=".",
 )
 
 coll = COLLECT(  # noqa: F821

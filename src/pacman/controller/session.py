@@ -87,8 +87,13 @@ class Session(Observable[Event], Observer[Event]):
 
     def tick(self, delta_time: float) -> None:
         """Advance the model, but only while a game is being played."""
-        if self._screen is Screen.PLAYING and self._game is not None:
+        if self._screen is not Screen.PLAYING or self._game is None:
+            return
+
+        try:
             self._game.update(delta_time)
+        except RuntimeError as error:
+            self._abort_game(error)
 
     def stop(self) -> None:
         """Ask the application to close."""
@@ -133,8 +138,24 @@ class Session(Observable[Event], Observer[Event]):
             self._show(Screen.PAUSED, PAUSE_MENU)
             return
 
-        if self._game is not None:
+        if self._game is None:
+            return
+
+        try:
             self._game.handle(command)
+        except RuntimeError as error:
+            self._abort_game(error)
+
+    def _abort_game(self, error: RuntimeError) -> None:
+        """Drop a game the model cannot continue, with a clean message.
+
+        The only failure the model reports this way is the external maze
+        generator refusing to build the next level. Losing the run is
+        acceptable; a traceback in front of the reviewer is not.
+        """
+        self._error = str(error)
+        print(f"error: {error}")
+        self._abandon_game()
 
     def _handle_name_entry(self, command: Command) -> None:
         """Type the name saved with the score, then go back to the menu."""

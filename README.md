@@ -141,7 +141,14 @@ line. The program takes exactly one argument and it must end in `.json`.
 | `points_per_super_pacgum`  | `50`               | score for a super-pacgum                                            |
 | `points_per_ghost`         | `200`              | score for an edible ghost                                           |
 | `seed`                     | `42`               | seed of the first level; later levels are random                    |
-| `level_max_time`           | `90`               | seconds allowed per level                                           |
+| `level_max_time`           | `150`              | seconds allowed per level                                           |
+
+**Why 150 seconds.** A 21x21 maze has about 224 corridors and, with
+`pacgum: 999`, a pacgum in every one of them. The shortest route that
+collects them all is roughly 310 cells, i.e. ~62 s at Pac-Man's speed
+with no mistake and no ghost to dodge — so a 90 s limit made a level
+unclearable in practice. Lower `pacgum` (e.g. `80`) or shrink the maze
+if a shorter level is wanted instead.
 
 **Faulty configuration.** A missing key, a wrong type or an out-of-range
 value never stops the game: the value is clamped to a safe default, a
@@ -319,6 +326,11 @@ handler; the protocol is plain data on purpose.
 make package        # -> dist/pac-man/
 cd dist/pac-man && ./pac-man config.json
 ```
+
+`EXE(contents_directory=".")` in the spec keeps the shipped
+`config.json` and `README.md` next to the executable instead of hiding
+them in PyInstaller 6's `_internal/` folder, so the command above works
+and a player can edit the configuration of the packaged game.
 
 The folder in `dist/` is the one uploaded to itch.io as a free, unlisted
 Linux build. It must be built on the target distribution, because the

@@ -6,6 +6,7 @@ called by the MLX loop hook (the real game), or by the plain loop of
 ``run`` (tests and headless runs) without changing anything else.
 """
 
+import sys
 import time
 from collections.abc import Callable, Iterable
 
@@ -69,6 +70,22 @@ class App:
         self._session.start()
 
     def tick(self) -> None:
+        """Run exactly one frame, and never raise.
+
+        ``tick`` is plugged into the MLX loop hook, which is a ctypes
+        callback: an exception escaping it is not propagated to the
+        caller, it is printed as a full traceback by ctypes and the loop
+        carries on in a broken state. The subject forbids showing a
+        traceback, so whatever goes wrong is turned into one clean line
+        and stops the application instead.
+        """
+        try:
+            self._tick()
+        except Exception as error:
+            print(f"error: unexpected failure: {error}", file=sys.stderr)
+            self.stop()
+
+    def _tick(self) -> None:
         """Run exactly one frame: input, model, then rendering."""
         if not self._running:
             return

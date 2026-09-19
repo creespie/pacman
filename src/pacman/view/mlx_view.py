@@ -55,6 +55,13 @@ CAUGHT_FRAMES = 30
 # Vertical step between two lines of text on the menu screens.
 LINE_HEIGHT = 26
 
+# Pause panel: where it starts, how thick its frame is, and how much
+# room is left between the frame and the text inside it.
+PANEL_TOP = 110
+PANEL_BORDER = 3
+PANEL_PADDING = 12
+PANEL_BORDER_COLOR = WALL_COLOR
+
 INSTRUCTIONS = (
     "Arrows or WASD    move Pac-Man",
     "ESC               pause / back",
@@ -380,7 +387,9 @@ class MlxView(View):
         if self._highscores:
             name, points = self._highscores[0]
             self._centered(
-                self._canvas.height - 60,
+                # One full TEXT_HEIGHT above the hint line below, or the
+                # two lines overlap.
+                self._canvas.height - 40 - TEXT_HEIGHT,
                 DIM_TEXT_COLOR,
                 f"best: {name} {points}",
             )
@@ -438,20 +447,44 @@ class MlxView(View):
     def _render_pause(self) -> None:
         """The frozen game, with the pause menu on a panel over it."""
         self._render_game()
-        self._draw_panel(110, 210)
-        self._centered(120, TITLE_COLOR, "PAUSED")
+
+        # Title and entries share one uniform step, and the panel is
+        # sized from that: it always wraps its content exactly.
+        step = TEXT_HEIGHT + LINE_HEIGHT
+        lines = 1 + len(self._menu)
+        height = PANEL_PADDING * 2 + TEXT_HEIGHT + (lines - 1) * step
+
+        self._draw_panel(PANEL_TOP, height)
+
+        top = PANEL_TOP + PANEL_PADDING
+        self._centered(top, TITLE_COLOR, "PAUSED")
 
         for index, entry in enumerate(self._menu):
             selected = index == self._selected
             color = SELECTED_COLOR if selected else TEXT_COLOR
             label = f"> {entry} <" if selected else entry
-            self._centered(190 + index * LINE_HEIGHT * 2, color, label)
+            self._centered(top + (index + 1) * step, color, label)
 
     def _draw_panel(self, top: int, height: int) -> None:
-        """Paint a plain box so overlay text stays readable on the maze."""
+        """Paint a framed box so overlay text reads as a panel.
+
+        Without the frame, the plain black rectangle simply erases a
+        band of the maze - and the entities already drawn in it - which
+        looks like a rendering glitch rather than a dialog.
+        """
         width = self._canvas.width * 3 // 4
         left = (self._canvas.width - width) // 2
-        self._canvas.frame.rect(left, top, width, height, FLOOR_COLOR)
+
+        self._canvas.frame.rect(
+            left, top, width, height, PANEL_BORDER_COLOR
+        )
+        self._canvas.frame.rect(
+            left + PANEL_BORDER,
+            top + PANEL_BORDER,
+            width - 2 * PANEL_BORDER,
+            height - 2 * PANEL_BORDER,
+            FLOOR_COLOR,
+        )
 
     def _render_end(self, title: str, message: str) -> None:
         """Game over and victory screens, with the name prompt."""

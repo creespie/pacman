@@ -136,8 +136,23 @@ class Canvas:
         self.height = height
         self._mlx = Mlx()
         self._mlx_ptr = self._mlx.mlx_init()
+
+        # mlx_init returns NULL when the backend cannot start (no
+        # display, no Vulkan driver). Passing that NULL to any other
+        # MiniLibX call segfaults inside the C library, and a segfault
+        # is not something a try/except can turn into a message, so the
+        # pointer is checked here instead.
+        if not self._mlx_ptr:
+            raise RuntimeError(
+                "MiniLibX could not initialize its backend "
+                "(no display, or no Vulkan driver available)"
+            )
+
         self._win_ptr = self._mlx.mlx_new_window(
             self._mlx_ptr, width, height, title)
+
+        if not self._win_ptr:
+            raise RuntimeError("MiniLibX could not open a window")
         self.background = Image(self._mlx, self._mlx_ptr, width, height)
         self.frame = Image(self._mlx, self._mlx_ptr, width, height)
         self._texts: list[tuple[int, int, int, str]] = []
