@@ -388,6 +388,14 @@ class Game(Observable[Event]):
                 )
                 ghost.direction = Direction.NONE
 
+                # Snap to the centre of the cell the ghost is currently
+                # in, so _is_centred (and therefore _steer_ghost) can
+                # succeed next frame instead of leaving the ghost stuck
+                # wherever clip_to_wall's binary search happened to land.
+                cell_x = int(ghost.x)
+                cell_y = int(ghost.y)
+                ghost.position = (cell_x + 0.5, cell_y + 0.5)
+
             if ghost.position != old_position:
                 self._notify_ghost_moved(index, ghost)
 
