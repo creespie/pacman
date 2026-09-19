@@ -65,7 +65,8 @@ def _run(config: Config) -> int:
         )
         return 1
 
-    views: list[View] = [MlxView(canvas)]
+    mlx_view = MlxView(canvas)
+    views: list[View] = [mlx_view]
 
     # Optional event log, handy during development and peer review.
     if os.environ.get("PACMAN_DEBUG"):
@@ -84,6 +85,7 @@ def _run(config: Config) -> int:
 
     canvas.on_key(keyboard.press)
     canvas.on_close(window_closed.ask_quit)
+    canvas.on_expose(mlx_view.invalidate)
     canvas.on_tick(app.tick)
 
     try:

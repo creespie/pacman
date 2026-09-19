@@ -41,6 +41,16 @@ stops the program, with one readable line.
 Simple, inspectable during the review, cheap to rewrite whole. Every
 read is defensive because the file is user-editable by design.
 
+## Repainting only what changed
+
+The obvious loop redraws everything sixty times a second. That is right
+for a running game and wrong for a menu: MiniLibX draws text one
+character at a time, on top of the frame that has just erased it, and
+flushes to the screen every 64 blits, so a static menu flickered
+permanently. The view therefore keeps a dirty flag, set by any incoming
+event and by the expose hook. The game screen ignores it, since
+something moves on every frame.
+
 ## Session separate from the game
 
 Screen flow (menu, pause, highscores, name entry) lives in

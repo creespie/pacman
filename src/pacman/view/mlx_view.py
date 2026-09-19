@@ -8,6 +8,7 @@ its pixel is ``origin + x * cell_size``. No half cell is added here.
 
 from pacman.protocol import (
     CheatsChanged,
+    Event,
     Direction,
     FoodCollected,
     FoodSpawned,
@@ -79,6 +80,13 @@ class MlxView(View):
     def __init__(self, canvas: Canvas) -> None:
         self._canvas = canvas
 
+        # A screen where nothing moves is only redrawn when something
+        # actually changed: MLX draws text as one blit per character,
+        # straight onto the window and on top of the frame that has just
+        # erased it, so repainting an unchanged menu sixty times a
+        # second makes the text flicker.
+        self._dirty = True
+
         self._screen = Screen.MENU
         self._grid: list[list[int]] = []
         self._food: dict[tuple[float, float], FoodType] = {}
@@ -133,6 +141,15 @@ class MlxView(View):
         )
 
     # -- event handlers: state only --------------------------------------
+
+    def update(self, event: Event) -> None:
+        """Store the event, and mark the screen as needing a repaint."""
+        super().update(event)
+        self._dirty = True
+
+    def invalidate(self) -> None:
+        """Force a full repaint, e.g. when the window is uncovered."""
+        self._dirty = True
 
     def on_screen_changed(self, event: ScreenChanged) -> None:
         """Remember which screen has to be drawn."""
@@ -451,7 +468,17 @@ class MlxView(View):
         )
 
     def render(self) -> None:
-        """Draw one frame for whichever screen is active."""
+        """Draw one frame, skipping the screens that cannot have moved.
+
+        While a game is running something moves on every frame, so the
+        frame is always redrawn. Every other screen is static: redrawing
+        it only when an event changed it removes the text flicker.
+        """
+        if self._screen is not Screen.PLAYING and not self._dirty:
+            return
+
+        self._dirty = False
+
         if self._caught_frames:
             self._caught_frames -= 1
 

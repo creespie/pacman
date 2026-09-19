@@ -20,6 +20,14 @@ OPAQUE: int = 0xFF
 # machine; it is the only place that needs changing.
 STRING_COLOR_SWAPS_RB = True
 
+# MiniLibX queues every blit in a list of VK_NB_DRAW = 64 entries and
+# flushes it to the screen as soon as it is full. One image counts as
+# one entry and *every character* of mlx_string_put counts as one too,
+# so a frame holding more than ~63 characters gets cut in half and is
+# presented in two pieces: the player sees the text being typed on, and
+# it flickers. Keep a frame under this budget.
+MAX_DRAWS_PER_FRAME = 64
+
 # Metrics of the MLX built-in font atlas (1140 px wide, 95 glyphs): one
 # character is exactly 10 px wide. The glyphs are not drawn at ``y``
 # itself but a little below it, and a line ends up occupying roughly
@@ -142,15 +150,30 @@ class Canvas:
         """Queue a string; it is drawn on top of the image by present()."""
         self._texts.append((x, y, color, value))
 
+    @property
+    def draw_count(self) -> int:
+        """Blits the next present will cost: the frame, plus one per
+
+        character of queued text. Above MAX_DRAWS_PER_FRAME the frame is
+        torn in two by MiniLibX, so this is worth keeping an eye on.
+        """
+        return 1 + sum(len(text) for _x, _y, _color, text in self._texts)
+
     def present(self) -> None:
         """Push the frame to the window, then the queued strings."""
         self._mlx.mlx_put_image_to_window(
             self._mlx_ptr, self._win_ptr, self.frame.ptr, 0, 0)
+
         for x, y, color, value in self._texts:
             self._mlx.mlx_string_put(
                 self._mlx_ptr, self._win_ptr, x, y,
                 to_string_color(color), value)
+
         self._texts.clear()
+
+        # Flush the batch here, so that one call to present is one frame
+        # on screen instead of whatever MiniLibX decides to cut.
+        self._mlx.mlx_do_sync(self._mlx_ptr)
 
     def on_key(self, handler: Callable[[int], None]) -> None:
         """Register a callback receiving the keycode of each key press."""
@@ -168,6 +191,17 @@ class Canvas:
 
         self._mlx.mlx_hook(
             self._win_ptr, DESTROY_NOTIFY, 0, wrapper, None)
+
+    def on_expose(self, handler: Callable[[], None]) -> None:
+        """Register a callback for when the window has to repaint.
+
+        A view that only redraws what changed still has to redraw
+        everything when the window manager uncovers the window.
+        """
+        def wrapper(_param: Any) -> None:
+            handler()
+
+        self._mlx.mlx_expose_hook(self._win_ptr, wrapper, None)
 
     def on_tick(self, handler: Callable[[], None]) -> None:
         """Register the callback MLX calls once per frame."""

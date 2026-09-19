@@ -226,6 +226,23 @@ once into a background image; a frame is one `memcpy` of that image plus
 the five moving entities. Eating a pacgum repaints a single cell of the
 background instead of the whole maze.
 
+**The drawing budget, and why menus are not repainted.** MiniLibX queues
+its blits and flushes them to the screen as soon as 64 are pending
+(`VK_NB_DRAW`). An image counts as one blit and *every character* of
+`mlx_string_put` counts as one too, so a frame carrying more than ~63
+characters is presented in two pieces and the text visibly flickers.
+Two things come out of that:
+
+* `Canvas.present()` ends with `mlx_do_sync()`, so one call to `present`
+  is exactly one frame on screen instead of whatever MiniLibX decides to
+  cut in the middle;
+* the view only repaints a screen that can have changed. A running game
+  moves on every frame and is always redrawn — its HUD costs 47 blits of
+  the 64 available, which `tests/test_view.py` checks — while the menus,
+  the pause screen and the end screens are static and are redrawn only
+  when an event changed them, or when the window is uncovered (the
+  expose hook calls `MlxView.invalidate`).
+
 **Movement.** Entities move in cells per second and are only allowed to
 turn on a cell centre. "Being on a centre" is not a fixed epsilon but
 half of the distance covered during the current frame, so an entity is
