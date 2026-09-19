@@ -128,7 +128,7 @@ class Maze:
                     + distance_y * distance_y
                 )
 
-                if distance_squared < radius * radius:
+                if distance_squared <= radius * radius:
                     return True
 
         return False

@@ -328,8 +328,15 @@ class Game(Observable[Event]):
             )
             self._pacman.direction = Direction.NONE
 
+            # Snap to the centre of the cell Pac-Man is currently in,
+            # so _is_centred and _is_open work correctly next frame.
+            cell_x = int(self._pacman.x)
+            cell_y = int(self._pacman.y)
+            self._pacman.position = (cell_x + 0.5, cell_y + 0.5)
+
         if self._pacman.position != old_position:
             self._notify_pacman_moved()
+
 
     def _request_direction(self, direction: Direction) -> None:
         """Remember the direction the player wants to take."""
