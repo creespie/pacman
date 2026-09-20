@@ -350,7 +350,7 @@ The folder in `dist/` is the one uploaded to itch.io as a free, unlisted
 Linux build. It must be built on the target distribution, because the
 MiniLibX shared object links against the system X11 libraries.
 
-> Published build: \<itch.io URL\> (unlisted) — \<password if any\>
+> Published build: https://lorenzomezza.itch.io/python-pacman
 
 ## Project Management
 
