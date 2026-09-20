@@ -259,6 +259,20 @@ which kills the drift that would otherwise accumulate in floating point.
 Requested turns are remembered (`next_direction`), so a turn asked for
 slightly too early is still taken.
 
+That last point needs two numbers, and they answer different questions.
+`_is_centred` answers "did this entity go through a centre during this
+frame?", and its tolerance has to be half a frame's step or a slow frame
+skips the intersection — it is a detection threshold and it rightly
+follows the frame rate. `_can_turn` answers "is Pac-Man close enough to
+a centre to turn?", which is geometry, not timing: `TURN_WINDOW = 0.2`
+cells, fixed. Reusing the first for the second made the controls sluggish
+— at 60 fps the window was 0.042 cells, so most of the 200 ms between two
+centres simply threw the input away, and it got *worse* on a faster
+machine. Ghosts keep `_is_centred`; only Pac-Man uses the wider window.
+A request also expires after `TURN_REQUEST_TIMEOUT`, so a turn pressed
+against a wall no longer fires by itself at some unrelated intersection
+seconds later.
+
 **Ghosts.** Each of the four picks, at every intersection, the direction
 that minimises the squared distance to Pac-Man — and maximises it while
 frightened. They never reverse unless it is the only way out. Eaten
