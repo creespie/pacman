@@ -75,6 +75,19 @@ class Game(Observable[Event]):
     GHOST_SPEED = 4.0
     ENTITY_RADIUS = 0.3
 
+    # How far from a cell centre Pac-Man may still take a turn. Unlike
+    # the tolerance of _is_centred, this is not a frame-rate matter but
+    # a geometric one: the snap that follows moves him by at most this
+    # much, and with a radius of 0.3 in a corridor one cell wide there
+    # is room to spare. Widening this window is what keeps the controls
+    # responsive - at 5 cells per second a centre goes by every 200 ms,
+    # and a window of one frame would throw most inputs away.
+    TURN_WINDOW = 0.2
+
+    # A turn asked for too long ago is dropped instead of firing at some
+    # later intersection, which felt like Pac-Man turning on his own.
+    TURN_REQUEST_TIMEOUT = 0.3
+
     def __init__(self, config: Config) -> None:
         super().__init__()
 
@@ -83,6 +96,12 @@ class Game(Observable[Event]):
         self._time_left = float(config.level_max_time)
         self._game_over = False
         self._game_won = False
+
+        # Game time, used to expire a turn request. It follows the
+        # model and not the wall clock, so it stops when the game is
+        # paused and stays reproducible in the tests.
+        self._elapsed = 0.0
+        self._request_time = 0.0
 
         self._cheats_enabled = False
         self._invincible = False
@@ -284,6 +303,7 @@ class Game(Observable[Event]):
         if self.is_over:
             return
 
+        self._elapsed += delta_time
         self._update_timer(delta_time)
 
         if self.is_over:
@@ -338,8 +358,9 @@ class Game(Observable[Event]):
             self._notify_pacman_moved()
 
     def _request_direction(self, direction: Direction) -> None:
-        """Remember the direction the player wants to take."""
+        """Remember the direction the player wants to take, and when."""
         self._pacman.next_direction = direction
+        self._request_time = self._elapsed
 
         # Turning back is always possible: no need to wait for a centre.
         if direction == _OPPOSITE_DIRECTIONS[self._pacman.direction]:
@@ -352,7 +373,11 @@ class Game(Observable[Event]):
         if wanted is Direction.NONE or wanted == self._pacman.direction:
             return
 
-        if not self._is_centred(self._pacman, delta_time):
+        if self._elapsed - self._request_time > self.TURN_REQUEST_TIMEOUT:
+            self._pacman.next_direction = Direction.NONE
+            return
+
+        if not self._can_turn(delta_time):
             return
 
         cell_x, cell_y = int(self._pacman.x), int(self._pacman.y)
@@ -471,6 +496,23 @@ class Game(Observable[Event]):
         tolerance = entity.speed * delta_time / 2 + 1e-9
         offset_x = entity.x - int(entity.x) - 0.5
         offset_y = entity.y - int(entity.y) - 0.5
+
+        return abs(offset_x) <= tolerance and abs(offset_y) <= tolerance
+
+    def _can_turn(self, delta_time: float) -> bool:
+        """Return True if Pac-Man is close enough to a centre to turn.
+
+        This is the player-facing half of _is_centred, and it uses a
+        fixed window instead of a frame-relative one. The max keeps the
+        guarantee of _is_centred anyway: below roughly twelve frames per
+        second a single step is longer than TURN_WINDOW, and a fixed
+        window alone would be stepped straight over.
+        """
+        tolerance = max(
+            self.TURN_WINDOW, self._pacman.speed * delta_time / 2
+        )
+        offset_x = self._pacman.x - int(self._pacman.x) - 0.5
+        offset_y = self._pacman.y - int(self._pacman.y) - 0.5
 
         return abs(offset_x) <= tolerance and abs(offset_y) <= tolerance
 

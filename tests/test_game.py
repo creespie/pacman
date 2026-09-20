@@ -179,3 +179,86 @@ def test_skipping_every_level_wins_the_game(
     assert game.is_won
     assert len(view.of_type(GameWon)) == 1
     assert len(view.of_type(LevelStarted)) == config.levels
+
+
+def _open_directions(game: Game) -> list[Direction]:
+    """Directions Pac-Man could take from the cell he stands in."""
+    cell_x, cell_y = int(game.pacman.x), int(game.pacman.y)
+
+    return [
+        direction
+        for direction in (
+            Direction.UP,
+            Direction.DOWN,
+            Direction.LEFT,
+            Direction.RIGHT,
+        )
+        if game.maze.is_walkable(
+            cell_x + int(direction.value[0]),
+            cell_y + int(direction.value[1]),
+        )
+    ]
+
+
+def test_a_turn_is_taken_before_reaching_the_centre(config: Config) -> None:
+    """The turn window is what keeps the controls responsive.
+
+    A centre goes by every 200 ms at Pac-Man's speed, so a window of one
+    frame would throw most inputs away and the game would feel sluggish.
+    """
+    game = Game(config)
+    game.start()
+
+    wanted = next(
+        direction
+        for direction in _open_directions(game)
+        if direction in (Direction.UP, Direction.DOWN)
+    )
+
+    # Stand short of the centre by most of the window, as a player
+    # pressing the key slightly early would be.
+    cell_x, cell_y = int(game.pacman.x), int(game.pacman.y)
+    game.pacman.position = (
+        cell_x + 0.5 - Game.TURN_WINDOW * 0.9,
+        cell_y + 0.5,
+    )
+
+    game.handle(SetDirection(wanted))
+    game.update(FRAME)
+
+    assert game.pacman.direction is wanted
+
+    # Whatever the window allowed, Pac-Man is back on the grid.
+    assert game.pacman.x == cell_x + 0.5
+
+
+def test_an_old_turn_request_is_dropped(config: Config) -> None:
+    """A turn that never became possible must not fire much later.
+
+    Keeping it would make Pac-Man turn on his own at some unrelated
+    intersection, seconds after the key was pressed.
+    """
+    game = Game(config)
+    game.start()
+
+    game.handle(ToggleCheatMode())
+    game.handle(UseCheat(Cheat.FREEZE_GHOSTS))
+    game.handle(UseCheat(Cheat.INVINCIBILITY))
+
+    open_directions = _open_directions(game)
+    blocked = next(
+        direction
+        for direction in (
+            Direction.UP,
+            Direction.DOWN,
+            Direction.LEFT,
+            Direction.RIGHT,
+        )
+        if direction not in open_directions
+    )
+
+    game.handle(SetDirection(blocked))
+    play(game, Game.TURN_REQUEST_TIMEOUT + 0.2)
+
+    assert game.pacman.next_direction is Direction.NONE
+    assert game.pacman.direction is not blocked
