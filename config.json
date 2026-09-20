@@ -1,6 +1,4 @@
 # Pac-Man configuration.
-# Lines starting with '#' are comments, and so is anything after a '#'
-# or a '//' outside of a JSON string.
 {
     # Where the top ten scores are stored, relative to the working dir.
     "highscore_filename": "highscores.json",
@@ -10,8 +8,8 @@
 
     # Size of the maze, in cells. The A-Maze-ing generator receives
     # half of it, since every generated cell becomes a 2x2 block.
-    "width": 21,
-    "height": 21,
+    "width": 28,
+    "height": 28,
 
     "lives": 3,
 

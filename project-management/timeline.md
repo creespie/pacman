@@ -28,5 +28,3 @@
 
 ## Task board
 
-TODO: export or screenshot the board (GitHub Projects / Trello / Notion)
-and commit it here.

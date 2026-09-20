@@ -44,4 +44,3 @@ Manual checks, to run before the defence:
 | Centred text was off-centre and the longest lines ran past the window | first run on a real screen | the font is 10 px per character, not the 6 px that had been assumed; measured from the atlas (1140 px / 95 glyphs - 2) |
 | The pause menu was unreadable over the maze | first run on a real screen | a plain panel is painted behind it |
 | Text flickered continuously on the menus, the pause screen and the HUD | play-testing | MiniLibX presents as soon as 64 blits are queued, and one character is one blit, so a text-heavy frame was torn in two. `present()` now flushes with `mlx_do_sync` at the frame boundary, and static screens are repainted only when an event changed them. Proved by capturing the same screen six times in a row: six identical images, where it used to give six different ones |
-| TODO | | |

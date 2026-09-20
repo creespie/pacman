@@ -22,4 +22,4 @@ in `decisions.md`, disagreements settled by prototyping.
 
 ## What we would do differently
 
-TODO.
+all and nothing.
